@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>Duel Draw</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 
 <!-- ============================================================
   SETUP REQUIRED — read before hosting on GitHub Pages:
@@ -43,30 +43,25 @@
 
 <style>
   :root{
-    --paper: #F0D27C;
-    --paper-2: #E8C368;
-    --ink: #2A2E24;
-    --ink-soft: #6b6a4f;
-    --line: #D9B24A;
-    --accent-green: #2F6B45;
-    --accent-green-dark: #1F4A30;
-    --accent-sage: #6B8F71;
-    --accent-mustard: #D9A737;
-    --accent-purple: #A67FC4;
-    --accent-teal: #2F6B45;
-    --accent-clay: #B3684B;
-    --accent-plum: #8A6BA8;
-    --card: #FBEFC4;
-    --shadow: 0 2px 0 rgba(42,46,36,0.08), 0 10px 24px -12px rgba(42,46,36,0.4);
+    --bg: #ECE7F8;
+    --ink: #241B33;
+    --ink-soft: #8b83a0;
+    --line: #E6E0F5;
+    --accent-purple: #8B5CF6;
+    --accent-purple-dark: #6D28D9;
+    --accent-blue: #3B82F6;
+    --accent-orange: #FB923C;
+    --accent-pink: #EC4899;
+    --gradient: linear-gradient(135deg, #8B5CF6, #3B82F6);
+    --card: #FFFFFF;
+    --shadow: 0 1px 2px rgba(36,27,51,0.04), 0 12px 28px -14px rgba(107,60,220,0.35);
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
     margin:0;
     min-height:100%;
-    background:
-      repeating-linear-gradient(115deg, rgba(42,46,36,0.05) 0 3px, transparent 3px 26px),
-      var(--paper);
+    background:var(--bg);
     color:var(--ink);
     font-family:'Inter',sans-serif;
     display:flex;
@@ -74,67 +69,69 @@
     justify-content:center;
     padding:28px 16px 60px;
   }
-  h1,h2,h3{font-family:'Baloo 2',sans-serif; margin:0; letter-spacing:-0.01em;}
+  h1,h2,h3{font-family:'Poppins',sans-serif; margin:0; letter-spacing:-0.01em; font-weight:700;}
   .wrap{width:100%; max-width:640px;}
   .brand{
     display:flex; align-items:baseline; gap:10px; justify-content:center;
     margin-bottom:22px;
   }
-  .brand h1{font-size:30px; font-weight:700;}
-  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent-clay); transform:translateY(-4px);}
+  .brand h1{font-size:30px; font-weight:800;}
+  .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--gradient); transform:translateY(-4px);}
   .brand .sub{font-size:12.5px; color:var(--ink-soft); letter-spacing:0.08em; text-transform:uppercase; text-align:center; margin-top:-14px; margin-bottom:24px;}
 
   .card{
     position:relative;
+    overflow:hidden;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:20px;
     box-shadow:var(--shadow);
     padding:28px;
   }
   .card + .card{margin-top:18px;}
   .tape{
-    position:absolute; top:-11px; width:56px; height:22px;
-    background:repeating-linear-gradient(115deg, rgba(47,107,69,0.4) 0 6px, rgba(217,178,74,0.3) 6px 12px);
-    border:1px solid rgba(47,107,69,0.3);
-    opacity:0.85;
+    position:absolute; top:-30px; width:110px; height:110px; border-radius:50%;
+    background:var(--gradient);
+    filter:blur(2px);
+    opacity:0.25;
   }
-  .tape.left{left:22px; transform:rotate(-6deg);}
-  .tape.right{right:22px; transform:rotate(5deg);}
+  .tape.left{left:-30px;}
+  .tape.right{right:-30px; background:linear-gradient(135deg, var(--accent-pink), var(--accent-orange));}
 
   p{line-height:1.5; color:var(--ink);}
   .muted{color:var(--ink-soft); font-size:14px;}
 
   button{
-    font-family:'Inter',sans-serif; font-weight:600; font-size:14.5px;
-    border:none; border-radius:8px; cursor:pointer;
-    padding:12px 18px;
-    transition:transform 0.06s ease, filter 0.15s ease;
+    font-family:'Poppins',sans-serif; font-weight:700; font-size:13px;
+    text-transform:uppercase; letter-spacing:0.04em;
+    border:none; border-radius:999px; cursor:pointer;
+    padding:14px 18px;
+    transition:transform 0.06s ease, filter 0.15s ease, background 0.15s ease;
   }
   button:active{transform:translateY(1px);}
   button:disabled{opacity:0.4; cursor:not-allowed;}
-  .btn-primary{background:var(--accent-green); color:#fff; font-family:'Baloo 2',sans-serif; font-weight:700;}
-  .btn-primary:hover:not(:disabled){filter:brightness(1.12);}
-  .btn-give-up{background:transparent; color:var(--accent-purple); border:1.5px solid var(--accent-purple);}
-  .btn-give-up:hover:not(:disabled){background:rgba(166,127,196,0.1);}
-  .btn-secondary{background:transparent; color:var(--ink); border:1.5px solid var(--line);}
-  .btn-secondary:hover:not(:disabled){background:rgba(52,49,43,0.06);}
+  .btn-primary{background:var(--gradient); color:#fff;}
+  .btn-primary:hover:not(:disabled){filter:brightness(1.08);}
+  .btn-give-up{background:#fff; color:var(--accent-pink); border:1.5px solid var(--accent-pink);}
+  .btn-give-up:hover:not(:disabled){background:rgba(236,72,153,0.08);}
+  .btn-secondary{background:#fff; color:var(--accent-purple); border:1.5px solid var(--accent-purple);}
+  .btn-secondary:hover:not(:disabled){background:rgba(139,92,246,0.08);}
   .btn-block{width:100%;}
   .btn-row{display:flex; gap:10px;}
 
   input[type=text]{
     font-family:'Inter',sans-serif; font-size:15px;
-    border:1.5px solid var(--line); border-radius:8px;
-    padding:11px 13px; width:100%; background:#FFF8E1; color:var(--ink);
+    border:1.5px solid var(--line); border-radius:12px;
+    padding:12px 14px; width:100%; background:#F8F6FE; color:var(--ink);
   }
-  input[type=text]:focus{outline:2px solid var(--accent-green); outline-offset:1px;}
+  input[type=text]:focus{outline:2px solid var(--accent-purple); outline-offset:1px;}
   label{font-size:12.5px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:6px;}
   .field{margin-bottom:14px;}
 
   .code-display{
     font-family:'JetBrains Mono',monospace; font-weight:700; font-size:38px;
-    letter-spacing:0.14em; text-align:center; color:var(--ink);
-    background:#FFF8E1; border:1.5px dashed var(--line); border-radius:10px;
+    letter-spacing:0.14em; text-align:center; color:var(--accent-purple-dark);
+    background:#F8F6FE; border:1.5px dashed var(--accent-purple); border-radius:14px;
     padding:16px 0; margin:6px 0 4px;
   }
   .hide{display:none !important;}
@@ -145,33 +142,34 @@
   }
   .topbar .roomcode{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--ink); letter-spacing:0.08em;}
   .scoreboard{
-    display:flex; gap:14px; align-items:center; font-family:'JetBrains Mono',monospace;
+    display:flex; align-items:center; background:#fff; border:1px solid var(--line);
+    border-radius:999px; padding:4px; gap:2px; box-shadow:var(--shadow);
   }
   .score-chip{
-    background:var(--accent-purple); color:#fff; border-radius:999px;
-    padding:5px 11px; font-size:13px; font-weight:700; font-family:'Baloo 2',sans-serif;
+    color:var(--ink-soft); border-radius:999px;
+    padding:6px 12px; font-size:12.5px; font-weight:700; font-family:'Poppins',sans-serif;
   }
-  .score-chip.you{background:var(--accent-green); color:#F0D27C;}
-  .leave-link{background:none; border:none; color:var(--ink-soft); font-size:12.5px; text-decoration:underline; padding:4px; font-weight:500;}
+  .score-chip.you{background:var(--gradient); color:#fff;}
+  .leave-link{background:none; border:none; color:var(--ink-soft); font-size:12.5px; text-decoration:underline; padding:4px; font-weight:500; text-transform:none; letter-spacing:0;}
 
   .round-tag{
-    display:inline-block; font-family:'Baloo 2',sans-serif; font-weight:700; font-size:12px;
-    background:var(--accent-green); color:#F0D27C; padding:4px 12px; border-radius:999px;
+    display:inline-block; font-family:'Poppins',sans-serif; font-weight:700; font-size:11.5px;
+    color:var(--ink-soft); padding:6px 4px 6px 0;
     letter-spacing:0.03em;
   }
 
   .prompt-box{
-    background:#FFF8E1; border:1.5px solid var(--line); border-radius:8px;
+    background:#F8F6FE; border:1.5px solid var(--line); border-radius:14px;
     padding:14px 16px; margin-bottom:16px; text-align:center;
   }
   .prompt-box .label{font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft); margin-bottom:4px;}
-  .prompt-box .word{font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:700; color:var(--accent-green-dark);}
+  .prompt-box .word{font-family:'Poppins',sans-serif; font-size:24px; font-weight:700; color:var(--accent-purple-dark);}
 
   .clue-inputs .field input{font-size:14px;}
 
   canvas{
     display:block; width:100%; aspect-ratio:5/4;
-    background:#FFFFFF; border:1.5px solid var(--line); border-radius:8px;
+    background:#FFFFFF; border:1.5px solid var(--line); border-radius:14px;
     touch-action:none; cursor:crosshair;
   }
   .tool-row{
@@ -179,35 +177,40 @@
   }
   .palette{display:flex; gap:7px; flex-wrap:wrap;}
   .swatch{
-    width:26px; height:26px; border-radius:50%; border:2px solid rgba(42,46,36,0.15);
-    cursor:pointer; padding:0;
+    position:relative; width:28px; height:28px; border-radius:8px; border:2px solid transparent;
+    cursor:pointer; padding:0; box-shadow:0 1px 3px rgba(36,27,51,0.15);
   }
-  .swatch.white{border-color:rgba(42,46,36,0.3);}
-  .swatch.active{border-color:var(--accent-green-dark); transform:scale(1.12);}
+  .swatch.white{border-color:var(--line);}
+  .swatch.active{border-color:var(--accent-purple-dark); transform:scale(1.12);}
+  .swatch.active::after{
+    content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:13px; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,0.35);
+  }
+  .swatch.white.active::after{color:var(--accent-purple-dark); text-shadow:none;}
   .tool-btn{
-    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--line);
-    background:#FFF8E1; font-size:15px; display:flex; align-items:center; justify-content:center; padding:0;
+    width:34px; height:34px; border-radius:10px; border:1.5px solid var(--line);
+    background:#F8F6FE; font-size:15px; display:flex; align-items:center; justify-content:center; padding:0;
   }
-  .tool-btn.active{background:var(--accent-green); color:#fff; border-color:var(--accent-green);}
+  .tool-btn.active{background:var(--gradient); color:#fff; border-color:transparent;}
   .size-row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-left:2px;}
-  .size-row input[type=range]{width:80px; accent-color:var(--accent-green);}
+  .size-row input[type=range]{width:80px; accent-color:var(--accent-purple);}
 
   .drawing-frame{position:relative;}
-  .drawing-frame img{width:100%; display:block; border:1.5px solid var(--line); border-radius:8px; background:#FFFFFF;}
+  .drawing-frame img{width:100%; display:block; border:1.5px solid var(--line); border-radius:14px; background:#FFFFFF;}
 
   .clue-row{display:flex; gap:10px; margin:14px 0;}
   .clue-ticket{
     flex:1; position:relative; text-align:center; padding:12px 8px;
-    background:#FFF8E1; border:1.5px dashed var(--line); border-radius:8px;
+    background:#F8F6FE; border:1.5px dashed var(--line); border-radius:12px;
     font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer;
     min-height:52px; display:flex; align-items:center; justify-content:center;
     color:var(--ink-soft);
   }
   .clue-ticket.revealed{
-    color:var(--ink); border-style:solid; border-color:var(--accent-green); background:#fff;
+    color:var(--ink); border-style:solid; border-color:var(--accent-purple); background:#fff;
     font-family:'Inter',sans-serif; font-weight:500; cursor:default;
   }
-  .clue-ticket:not(.revealed):hover{background:rgba(47,107,69,0.08);}
+  .clue-ticket:not(.revealed):hover{background:rgba(139,92,246,0.08);}
   .clue-ticket.empty{opacity:0.35; cursor:default;}
 
   .waiting{
@@ -215,18 +218,18 @@
   }
   .waiting .spinner{
     width:30px; height:30px; margin:0 auto 14px; border-radius:50%;
-    border:3px solid var(--line); border-top-color:var(--accent-green);
+    border:3px solid var(--line); border-top-color:var(--accent-purple);
     animation:spin 0.9s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg);}}
 
   .reveal-answer{text-align:center; margin-bottom:14px;}
   .reveal-answer .label{font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft);}
-  .reveal-answer .word{font-family:'Baloo 2',sans-serif; font-size:28px; font-weight:700; color:var(--accent-purple);}
+  .reveal-answer .word{font-family:'Poppins',sans-serif; font-size:28px; font-weight:700; color:var(--accent-purple-dark);}
   .guess-line{text-align:center; margin-bottom:16px; font-size:15px;}
   .guess-line .label{font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft); display:block; margin-bottom:3px;}
 
-  .error-text{color:var(--accent-clay); font-size:13.5px; margin-top:8px; min-height:18px;}
+  .error-text{color:var(--accent-pink); font-size:13.5px; margin-top:8px; min-height:18px;}
   footer{text-align:center; margin-top:20px; font-size:12px; color:var(--ink-soft);}
 </style>
 </head>
@@ -679,14 +682,14 @@ document.getElementById('btn-submit-drawing').onclick = async () => {
 
 /* ---------------- Canvas / drawing tools ---------------- */
 const PALETTE = [
-  {name:'Charcoal', hex:'#2A2E24'},
-  {name:'Ferrule Green', hex:'#2F6B45'},
-  {name:'Sage', hex:'#6B8F71'},
-  {name:'Gold', hex:'#D9A737'},
-  {name:'Eraser Purple', hex:'#A67FC4'},
-  {name:'Deep Green', hex:'#1F4A30'},
-  {name:'Pencil Clay', hex:'#B3684B'},
-  {name:'Plum', hex:'#8A6BA8'},
+  {name:'Ink', hex:'#241B33'},
+  {name:'Purple', hex:'#8B5CF6'},
+  {name:'Blue', hex:'#3B82F6'},
+  {name:'Pink', hex:'#EC4899'},
+  {name:'Orange', hex:'#FB923C'},
+  {name:'Teal', hex:'#14B8A6'},
+  {name:'Yellow', hex:'#FBBF24'},
+  {name:'Deep Purple', hex:'#6D28D9'},
   {name:'White', hex:'#FFFFFF'}
 ];
 let activeColor = PALETTE[0].hex;
