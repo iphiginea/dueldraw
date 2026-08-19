@@ -169,7 +169,7 @@
 
   canvas{
     display:block; width:100%; aspect-ratio:5/4;
-    background:#FFFFFF; border:1.5px solid var(--line); border-radius:14px;
+    background:#2A2A2E; border:1.5px solid var(--line); border-radius:14px;
     touch-action:none; cursor:crosshair;
   }
   .tool-row{
@@ -196,7 +196,7 @@
   .size-row input[type=range]{width:80px; accent-color:var(--accent-purple);}
 
   .drawing-frame{position:relative;}
-  .drawing-frame img{width:100%; display:block; border:1.5px solid var(--line); border-radius:14px; background:#FFFFFF;}
+  .drawing-frame img{width:100%; display:block; border:1.5px solid var(--line); border-radius:14px; background:#2A2A2E;}
 
   .clue-row{display:flex; gap:10px; margin:14px 0;}
   .clue-ticket{
@@ -293,11 +293,12 @@
         <canvas id="draw-canvas" width="640" height="512"></canvas>
         <div class="tool-row">
           <div class="palette" id="palette"></div>
+          <button class="tool-btn" id="tool-undo" title="Undo last stroke">↺</button>
           <button class="tool-btn" id="tool-eraser" title="Eraser">◌</button>
           <button class="tool-btn" id="tool-clear" title="Clear canvas">✕</button>
           <div class="size-row">
             Size
-            <input type="range" id="brush-size" min="3" max="22" value="8">
+            <input type="range" id="brush-size" min="8" max="60" value="26">
           </div>
         </div>
         <div class="clue-inputs" style="margin-top:16px;">
@@ -678,11 +679,12 @@ document.getElementById('btn-submit-drawing').onclick = async () => {
   document.getElementById('clue-input-1').value='';
   document.getElementById('clue-input-2').value='';
   clearCanvas();
+  resetUndoStack();
 };
 
 /* ---------------- Canvas / drawing tools ---------------- */
 const PALETTE = [
-  {name:'Ink', hex:'#241B33'},
+  {name:'White', hex:'#FFFFFF'},
   {name:'Purple', hex:'#8B5CF6'},
   {name:'Blue', hex:'#3B82F6'},
   {name:'Pink', hex:'#EC4899'},
@@ -690,7 +692,7 @@ const PALETTE = [
   {name:'Teal', hex:'#14B8A6'},
   {name:'Yellow', hex:'#FBBF24'},
   {name:'Deep Purple', hex:'#6D28D9'},
-  {name:'White', hex:'#FFFFFF'}
+  {name:'Light Gray', hex:'#D1D5DB'}
 ];
 let activeColor = PALETTE[0].hex;
 let eraserOn = false;
@@ -718,12 +720,13 @@ function setupCanvas(){
   canvas = document.getElementById('draw-canvas');
   ctx = canvas.getContext('2d');
   clearCanvas();
+  resetUndoStack();
 
   let drawing = false;
   let lastX=0, lastY=0, lastW=3, lastT=0, strokeCount=0;
-  let BASE_W = 8;
+  let BASE_W = 26;
   const START_TAPER_PTS = 6;
-  function minW(){ return Math.max(2, BASE_W * 0.4); }
+  function minW(){ return Math.max(3, BASE_W * 0.4); }
 
   const sizeSlider = document.getElementById('brush-size');
   sizeSlider.addEventListener('input', () => { BASE_W = Number(sizeSlider.value); });
@@ -737,6 +740,7 @@ function setupCanvas(){
 
   function start(e){
     e.preventDefault();
+    pushUndoSnapshot();
     drawing = true;
     strokeCount = 0;
     const p = pos(e);
@@ -765,7 +769,7 @@ function setupCanvas(){
     if(eraserOn){
       ctx.globalCompositeOperation = 'destination-out';
       ctx.strokeStyle = 'rgba(0,0,0,1)';
-      ctx.lineWidth = 20;
+      ctx.lineWidth = Math.max(30, BASE_W * 1.4);
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = activeColor;
@@ -792,13 +796,30 @@ function setupCanvas(){
     eraserOn = !eraserOn;
     document.getElementById('tool-eraser').classList.toggle('active', eraserOn);
   };
-  document.getElementById('tool-clear').onclick = clearCanvas;
+  document.getElementById('tool-clear').onclick = () => {
+    pushUndoSnapshot();
+    clearCanvas();
+  };
+  document.getElementById('tool-undo').onclick = () => {
+    if(undoStack.length === 0) return;
+    const imgData = undoStack.pop();
+    ctx.putImageData(imgData, 0, 0);
+  };
 }
+
+let undoStack = [];
+const UNDO_LIMIT = 20;
+function pushUndoSnapshot(){
+  if(!ctx) return;
+  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+}
+function resetUndoStack(){ undoStack = []; }
 
 function clearCanvas(){
   if(!ctx) return;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = '#2A2A2E';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 </script>
