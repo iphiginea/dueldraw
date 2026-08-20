@@ -1,0 +1,76 @@
+name: Wire Firebase App Check once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Wire reCAPTCHA Enterprise App Check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          s = path.read_text()
+
+          if 'APP_CHECK_SITE_KEY' not in s:
+              marker = '    measurementId: "G-HXDHW99G3P"\n  };\n</script>'
+              replacement = '''    measurementId: "G-HXDHW99G3P"
+  };
+
+  // Public reCAPTCHA Enterprise site key. See APP_CHECK_SETUP.md.
+  // Leave blank until the web app is registered in Firebase App Check.
+  const APP_CHECK_SITE_KEY = "";
+</script>'''
+              assert marker in s
+              s = s.replace(marker, replacement, 1)
+
+          appcheck_script = '<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>'
+          if appcheck_script not in s:
+              auth_script = '<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>'
+              assert auth_script in s
+              s = s.replace(auth_script, auth_script + '\n' + appcheck_script, 1)
+
+          old_init = '''firebase.initializeApp(FIREBASE_CONFIG);
+          const db = firebase.firestore();'''
+          new_init = '''firebase.initializeApp(FIREBASE_CONFIG);
+
+          // App Check is intentionally activated only after a reCAPTCHA Enterprise
+          // site key has been registered. This lets us deploy the wiring safely
+          // before enabling enforcement in Firebase Console.
+          if (APP_CHECK_SITE_KEY) {
+            firebase.appCheck().activate(
+              new firebase.appCheck.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
+              true // automatically refresh App Check tokens
+            );
+          }
+
+          const db = firebase.firestore();'''
+          if old_init in s:
+              s = s.replace(old_init, new_init, 1)
+          elif 'ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY)' not in s:
+              raise RuntimeError('Firebase init block not found')
+
+          path.write_text(s)
+          PY
+
+      - name: Commit App Check wiring
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Wire Firebase App Check client"
+          git push
