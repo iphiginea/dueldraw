@@ -1,7 +1,7 @@
 name: Wire Firebase App Check once
 
 on:
-  push:
+  pull_request:
     branches: [main]
 
 permissions:
@@ -12,8 +12,10 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout temporary App Check branch
         uses: actions/checkout@v7
+        with:
+          ref: app-check-wire
 
       - name: Wire reCAPTCHA Enterprise App Check
         run: |
@@ -73,4 +75,4 @@ jobs:
             exit 0
           fi
           git commit -m "Wire Firebase App Check client"
-          git push
+          git push origin HEAD:app-check-wire
