@@ -1,26 +1,29 @@
 # Duel Draw — Firebase App Check setup
 
-Duel Draw is already protected by Firebase Anonymous Authentication and Firestore rules that bind each room to its host/guest Firebase UID. App Check is an additional anti-abuse layer that helps Firebase distinguish requests coming from the real web app from scripted traffic.
+Duel Draw is protected by Firebase Anonymous Authentication and Firestore rules that bind each room to its host/guest Firebase UID. Firebase App Check with reCAPTCHA Enterprise is now also wired into the web client as an additional anti-abuse layer.
 
 ## Provider
 
 Use **reCAPTCHA Enterprise** for this web app.
 
-## One-time console setup
+## Current status
 
-1. In Google Cloud Console, open **reCAPTCHA Enterprise** for the `dueldraw-e67cd` project.
-2. Create a **Website** score-based key (do not use a checkbox challenge).
-3. Add the production domain: `iphiginea.github.io`.
-4. Copy the **site key**. The site key is public and can safely live in `index.html`; do not place private credentials in the repo.
-5. In Firebase Console → **App Check**, register the Duel Draw web app with the **reCAPTCHA Enterprise** provider and that site key.
-6. Paste the same public site key into `APP_CHECK_SITE_KEY` in `index.html`.
-7. Deploy and test creating/joining a room from the GitHub Pages site.
-8. In Firebase Console → **App Check**, review request metrics. Once valid requests are showing normally, enable enforcement for **Cloud Firestore**.
+- Production domain: `iphiginea.github.io`
+- reCAPTCHA Enterprise site key: configured in `index.html`
+- Firebase App Check SDK: loaded and activated
+- Automatic App Check token refresh: enabled
+- Firestore App Check enforcement: **leave off until valid-request metrics are confirmed**
+
+## Console checklist
+
+1. In Firebase Console → **App Check**, make sure the Duel Draw web app is registered with the **reCAPTCHA Enterprise** provider using the same site key configured in `index.html`.
+2. Open the live GitHub Pages app and test creating a room and joining it from a second browser/device.
+3. Return to Firebase Console → **App Check** and review Cloud Firestore request metrics.
+4. Confirm legitimate traffic appears as **valid** App Check requests.
+5. Only after valid traffic is showing normally, enable App Check enforcement for **Cloud Firestore**.
 
 ## Important
 
-Do **not** enable App Check enforcement before `APP_CHECK_SITE_KEY` is populated and the deployed app is successfully sending valid App Check tokens, or the game can lock itself out of Firestore.
+Do **not** enable App Check enforcement before the deployed app is successfully sending valid App Check tokens, or the game can lock itself out of Firestore.
 
-The SDK is configured for automatic token refresh once the site key is present.
-
-Client wiring is prepared in `index.html`; App Check becomes active when the registered public site key is filled in.
+The reCAPTCHA Enterprise site key is a public client-side identifier. Private credentials should never be committed to this repository.
