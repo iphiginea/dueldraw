@@ -1,0 +1,295 @@
+name: Harden Duel Draw room authorization once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Patch room identity and security rules
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          s = path.read_text()
+
+          start = s.index('<!-- ============================================================')
+          end_marker = '============================================================= -->'
+          end = s.index(end_marker, start) + len(end_marker)
+          setup_comment = '''<!-- ============================================================
+            SECURITY SETUP
+            1. Firebase Authentication > Sign-in method > enable Anonymous.
+            2. Firestore Database > Rules > publish the contents of firestore.rules.
+
+            Room ownership is tied to Firebase Authentication UIDs. The host and
+            guest are the only users allowed to keep reading or updating a room
+            after the guest joins. Collection listing and room deletion are denied.
+          ============================================================= -->'''
+          s = s[:start] + setup_comment + s[end:]
+
+          old_auth = '''const authReady = firebase.auth().signInAnonymously().catch(err => {
+            console.error('Anonymous sign-in failed:', err);
+          });'''
+          new_auth = '''const authReady = firebase.auth().signInAnonymously()
+            .then(credential => credential.user)
+            .catch(err => {
+              console.error('Anonymous sign-in failed:', err);
+              throw err;
+            });'''
+          assert old_auth in s
+          s = s.replace(old_auth, new_auth, 1)
+
+          old_uuid = "function uuid(){ return 'p-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }\n"
+          assert old_uuid in s
+          s = s.replace(old_uuid, '', 1)
+
+          old_create = '''document.getElementById('btn-create').onclick = async () => {
+            await authReady;
+            const code = randCode();
+            const playerId = uuid();'''
+          new_create = '''document.getElementById('btn-create').onclick = async () => {
+            const user = await authReady;
+            const code = randCode();
+            const playerId = user.uid;'''
+          assert old_create in s
+          s = s.replace(old_create, new_create, 1)
+
+          old_join_start = '''document.getElementById('btn-join').onclick = async () => {
+            await authReady;
+            const input = document.getElementById('join-code-input');'''
+          new_join_start = '''document.getElementById('btn-join').onclick = async () => {
+            const user = await authReady;
+            const playerId = user.uid;
+            const input = document.getElementById('join-code-input');'''
+          assert old_join_start in s
+          s = s.replace(old_join_start, new_join_start, 1)
+
+          old_join_logic = '''  const data = snap.data();
+            if(data.guestId && data.guestId !== (session && session.roomCode===code ? session.playerId : null)){
+              errEl.textContent = 'That room is already full.';
+              return;
+            }
+            const playerId = uuid();
+            if(!data.guestId){
+              const firstPromptIdx = data.pool[0];
+              const remainingPool = data.pool.slice(1);
+              await ref.update({
+                guestId: playerId,
+                status: 'drawing',
+                promptIndex: firstPromptIdx,
+                pool: remainingPool
+              });
+            }
+            session = { roomCode: code, playerId, role: 'guest' };
+            saveSession(session);
+            showScreen('game');
+            listenRoom(code);'''
+          new_join_logic = '''  const data = snap.data();
+            if(data.hostId === playerId){
+              session = { roomCode: code, playerId, role: 'host' };
+              saveSession(session);
+              document.getElementById('lobby-code').textContent = code;
+              showScreen(data.status === 'waiting' ? 'lobby' : 'game');
+              listenRoom(code);
+              return;
+            }
+            if(data.guestId && data.guestId !== playerId){
+              errEl.textContent = 'That room is already full.';
+              return;
+            }
+            if(!data.guestId){
+              const firstPromptIdx = data.pool[0];
+              const remainingPool = data.pool.slice(1);
+              await ref.update({
+                guestId: playerId,
+                status: 'drawing',
+                promptIndex: firstPromptIdx,
+                pool: remainingPool
+              });
+            }
+            session = { roomCode: code, playerId, role: 'guest' };
+            saveSession(session);
+            showScreen('game');
+            listenRoom(code);'''
+          assert old_join_logic in s
+          s = s.replace(old_join_logic, new_join_logic, 1)
+
+          old_rejoin = '''window.addEventListener('DOMContentLoaded', async () => {
+            buildPalette();
+            setupCanvas();
+            if(session && session.roomCode){
+              showScreen(session.role === 'host' ? 'lobby' : 'game');
+              if(session.role === 'host') document.getElementById('lobby-code').textContent = session.roomCode;
+              await authReady;
+              listenRoom(session.roomCode);
+            }
+          });'''
+          new_rejoin = '''window.addEventListener('DOMContentLoaded', async () => {
+            buildPalette();
+            setupCanvas();
+            if(session && session.roomCode){
+              const user = await authReady;
+              if(session.playerId !== user.uid){
+                clearSession();
+                session = null;
+                showScreen('home');
+                return;
+              }
+              showScreen(session.role === 'host' ? 'lobby' : 'game');
+              if(session.role === 'host') document.getElementById('lobby-code').textContent = session.roomCode;
+              listenRoom(session.roomCode);
+            }
+          });'''
+          assert old_rejoin in s
+          s = s.replace(old_rejoin, new_rejoin, 1)
+
+          old_listener = '''function listenRoom(code){
+            if(unsub) unsub();
+            unsub = ROOMS.doc(code).onSnapshot(snap => {
+              if(!snap.exists){ leaveRoom(); return; }
+              currentDoc = snap.data();
+              render();
+            });
+          }'''
+          new_listener = '''function listenRoom(code){
+            if(unsub) unsub();
+            unsub = ROOMS.doc(code).onSnapshot(snap => {
+              if(!snap.exists){ leaveRoom(); return; }
+              currentDoc = snap.data();
+              render();
+            }, err => {
+              console.error('Room access denied or unavailable:', err);
+              leaveRoom();
+            });
+          }'''
+          assert old_listener in s
+          s = s.replace(old_listener, new_listener, 1)
+
+          s = s.replace('clues: ["","",""],', 'clues: ["",""],')
+
+          path.write_text(s)
+
+          rules = '''rules_version = '2';
+          service cloud.firestore {
+            match /databases/{database}/documents {
+              match /duelDrawRooms/{roomCode} {
+                function signedIn() {
+                  return request.auth != null;
+                }
+
+                function validCode() {
+                  return roomCode.matches('^[A-HJ-NP-Z2-9]{4}$');
+                }
+
+                function isParticipant(data) {
+                  return signedIn()
+                    && (data.hostId == request.auth.uid || data.guestId == request.auth.uid);
+                }
+
+                function validRoom(data) {
+                  return data.keys().hasOnly([
+                      'createdAt', 'hostId', 'guestId', 'status', 'drawerRole',
+                      'round', 'pool', 'promptIndex', 'clues', 'cluesRevealed',
+                      'drawingData', 'guess', 'scores'
+                    ])
+                    && data.keys().hasAll([
+                      'createdAt', 'hostId', 'guestId', 'status', 'drawerRole',
+                      'round', 'pool', 'promptIndex', 'clues', 'cluesRevealed',
+                      'drawingData', 'guess', 'scores'
+                    ])
+                    && data.createdAt is int
+                    && data.hostId is string
+                    && (data.guestId == null || data.guestId is string)
+                    && data.status in ['waiting', 'drawing', 'guessing', 'reveal']
+                    && data.drawerRole in ['host', 'guest']
+                    && data.round is int
+                    && data.round >= 1
+                    && data.pool is list
+                    && data.pool.size() <= 100
+                    && (data.promptIndex == null || data.promptIndex is int)
+                    && data.clues is list
+                    && data.clues.size() == 3
+                    && data.clues[0] is string && data.clues[0].size() <= 60
+                    && data.clues[1] is string && data.clues[1].size() <= 60
+                    && data.clues[2] is string && data.clues[2].size() <= 60
+                    && data.cluesRevealed is int
+                    && data.cluesRevealed >= 0 && data.cluesRevealed <= 3
+                    && data.drawingData is string
+                    && data.drawingData.size() < 900000
+                    && data.guess is string
+                    && data.guess.size() <= 60
+                    && data.scores is map
+                    && data.scores.keys().hasOnly(['host', 'guest'])
+                    && data.scores.host is int
+                    && data.scores.guest is int;
+                }
+
+                // A player may fetch a room they already belong to. A signed-in
+                // user who knows an unfilled room code may fetch it once to join.
+                allow get: if signedIn()
+                  && validCode()
+                  && (isParticipant(resource.data) || resource.data.guestId == null);
+
+                // Never allow collection enumeration.
+                allow list: if false;
+
+                allow create: if signedIn()
+                  && validCode()
+                  && validRoom(request.resource.data)
+                  && request.resource.data.hostId == request.auth.uid
+                  && request.resource.data.guestId == null
+                  && request.resource.data.status == 'waiting';
+
+                allow update: if signedIn()
+                  && validCode()
+                  && validRoom(request.resource.data)
+                  && request.resource.data.hostId == resource.data.hostId
+                  && request.resource.data.createdAt == resource.data.createdAt
+                  && (
+                    // The first guest may claim the empty guest slot, but only
+                    // the fields needed to begin the game can change with it.
+                    (
+                      resource.data.guestId == null
+                      && resource.data.hostId != request.auth.uid
+                      && request.resource.data.guestId == request.auth.uid
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'guestId', 'status', 'promptIndex', 'pool'
+                      ])
+                    )
+                    ||
+                    // After joining, only the recorded host or guest can update
+                    // game state, and neither identity field may be replaced.
+                    (
+                      isParticipant(resource.data)
+                      && request.resource.data.guestId == resource.data.guestId
+                    )
+                  );
+
+                allow delete: if false;
+              }
+            }
+          }
+          '''
+          Path('firestore.rules').write_text(rules)
+          PY
+
+      - name: Commit hardened room authorization
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html firestore.rules
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Bind Duel Draw rooms to Firebase auth users"
+          git push
