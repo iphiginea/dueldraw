@@ -4,28 +4,60 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>Duel Draw</title>
+<meta name="description" content="A two-player sketch & guess duel — draw the secret prompt, your friend guesses. No timers, no rush.">
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238B5CF6'/%3E%3Cstop offset='1' stop-color='%233B82F6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='12' fill='white'/%3E%3Cpath d='M19 29 Q32 56 45 29 Q32 40 19 29 Z' fill='white'/%3E%3C/svg%3E">
+
+<!-- Open Graph / social preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Duel Draw">
+<meta property="og:description" content="A two-player sketch & guess duel — draw the secret prompt, your friend guesses. No timers, no rush.">
+<meta property="og:image" content="https://iphiginea.github.io/dueldraw/og-image.png">
+<meta property="og:url" content="https://iphiginea.github.io/dueldraw/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Duel Draw">
+<meta name="twitter:description" content="A two-player sketch & guess duel — draw the secret prompt, your friend guesses. No timers, no rush.">
+<meta name="twitter:image" content="https://iphiginea.github.io/dueldraw/og-image.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 
 <!-- ============================================================
   SETUP REQUIRED — read before hosting on GitHub Pages:
   1. Go to https://console.firebase.google.com, create a free project.
-  2. Build > Firestore Database > Create database (start in test mode
-     is fine for a casual 2-player game; see suggested rules below).
-  3. Project settings (gear icon) > General > "Your apps" > Web app (</>)
-     > copy the firebaseConfig object.
-  4. Paste it into FIREBASE_CONFIG below, replacing the placeholder.
-  5. Suggested Firestore rules (Firestore > Rules) — open enough for
-     a casual game between friends, not meant for public production use:
+  2. Firestore Database > Create database.
+  3. Authentication > Sign-in method > enable "Anonymous". This lets the
+     app quietly sign each visitor into a lightweight session so the
+     rules below can require request.auth != null — it blocks random
+     bots/scripts from writing to your database without adding any
+     login screen for you or your friend.
+  4. Project settings (gear icon) > General > "Your apps" > Web app (</>)
+     > copy the firebaseConfig object into FIREBASE_CONFIG below.
+  5. Firestore > Rules — replace the default with:
 
      rules_version = '2';
      service cloud.firestore {
        match /databases/{database}/documents {
          match /duelDrawRooms/{roomCode} {
-           allow read, write: if true;
+           allow read: if request.auth != null;
+           allow create: if request.auth != null
+             && roomCode.matches('^[A-Z0-9]{4}$');
+           allow update: if request.auth != null
+             && request.resource.data.keys().hasOnly([
+                  'createdAt','hostId','guestId','status','drawerRole',
+                  'round','pool','promptIndex','clues','cluesRevealed',
+                  'drawingData','guess','scores'])
+             && request.resource.data.drawingData is string
+             && request.resource.data.drawingData.size() < 900000;
+           allow delete: if false;
          }
        }
      }
+
+     This requires a valid (anonymous) auth session, restricts which
+     fields can ever be written, and caps drawing size well under
+     Firestore's 1MB document limit. Click Publish after pasting.
 ============================================================= -->
 <script>
   const FIREBASE_CONFIG = {
@@ -40,6 +72,7 @@
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
 <style>
   :root{
@@ -385,6 +418,9 @@
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 const ROOMS = db.collection('duelDrawRooms');
+const authReady = firebase.auth().signInAnonymously().catch(err => {
+  console.error('Anonymous sign-in failed:', err);
+});
 
 /* ---------------- Prompt deck ---------------- */
 const PROMPTS = [
@@ -440,6 +476,7 @@ function showScreen(name){
 
 /* ---------------- Home: create / join ---------------- */
 document.getElementById('btn-create').onclick = async () => {
+  await authReady;
   const code = randCode();
   const playerId = uuid();
   const room = {
@@ -466,6 +503,7 @@ document.getElementById('btn-create').onclick = async () => {
 };
 
 document.getElementById('btn-join').onclick = async () => {
+  await authReady;
   const input = document.getElementById('join-code-input');
   const errEl = document.getElementById('home-error');
   errEl.textContent = '';
@@ -508,12 +546,13 @@ function leaveRoom(){
 }
 
 /* ---------------- Rejoin on load ---------------- */
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   buildPalette();
   setupCanvas();
   if(session && session.roomCode){
     showScreen(session.role === 'host' ? 'lobby' : 'game');
     if(session.role === 'host') document.getElementById('lobby-code').textContent = session.roomCode;
+    await authReady;
     listenRoom(session.roomCode);
   }
 });
