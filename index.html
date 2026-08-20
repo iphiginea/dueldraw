@@ -27,6 +27,8 @@
   SECURITY SETUP
   1. Firebase Authentication > Sign-in method > enable Anonymous.
   2. Firestore Database > Rules > publish the contents of firestore.rules.
+  3. Firebase App Check > register this web app with reCAPTCHA Enterprise.
+  4. Confirm valid App Check requests before enabling Firestore enforcement.
 
   Room ownership is tied to Firebase Authentication UIDs. The host and
   guest are the only users allowed to keep reading or updating a room
@@ -42,10 +44,12 @@
     appId: "1:1086928571791:web:3831c89322dd6fd7644ffa",
     measurementId: "G-HXDHW99G3P"
   };
+  const APP_CHECK_SITE_KEY = "6Lc2jI4tAAAAAPNOGFTM8FW6uN7lnNrlu29clhcB";
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 
 <style>
   :root{
@@ -389,6 +393,11 @@
 <script>
 /* ---------------- Firebase init ---------------- */
 firebase.initializeApp(FIREBASE_CONFIG);
+const appCheck = firebase.appCheck();
+appCheck.activate(
+  new firebase.appCheck.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
+  true
+);
 const db = firebase.firestore();
 const ROOMS = db.collection('duelDrawRooms');
 const authReady = firebase.auth().signInAnonymously()
@@ -463,7 +472,7 @@ document.getElementById('btn-create').onclick = async () => {
     round: 1,
     pool: shuffledIndices(PROMPTS.length),
     promptIndex: null,
-    clues: ["",""],
+    clues: ["","",""],
     cluesRevealed: 0,
     drawingData: "",
     guess: "",
@@ -683,7 +692,7 @@ async function advanceRound(correct){
       drawerRole: guesserRole, // the guesser becomes the drawer next round
       round: d.round + 1,
       status: 'drawing',
-      clues: ["",""],
+      clues: ["","",""],
       cluesRevealed: 0,
       drawingData: "",
       guess: ""
