@@ -22,3 +22,5 @@ Use **reCAPTCHA Enterprise** for this web app.
 Do **not** enable App Check enforcement before `APP_CHECK_SITE_KEY` is populated and the deployed app is successfully sending valid App Check tokens, or the game can lock itself out of Firestore.
 
 The SDK is configured for automatic token refresh once the site key is present.
+
+Client wiring is prepared in `index.html`; App Check becomes active when the registered public site key is filled in.
