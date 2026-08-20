@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /duelDrawRooms/{roomCode} {
+      function signedIn() {
+        return request.auth != null;
+      }
+
+      function validCode() {
+        return roomCode.matches('^[A-HJ-NP-Z2-9]{4}$');
+      }
+
+      function isParticipant(data) {
+        return signedIn()
+          && (data.hostId == request.auth.uid || data.guestId == request.auth.uid);
+      }
+
+      function validRoom(data) {
+        return data.keys().hasOnly([
+            'createdAt', 'hostId', 'guestId', 'status', 'drawerRole',
+            'round', 'pool', 'promptIndex', 'clues', 'cluesRevealed',
+            'drawingData', 'guess', 'scores'
+          ])
+          && data.keys().hasAll([
+            'createdAt', 'hostId', 'guestId', 'status', 'drawerRole',
+            'round', 'pool', 'promptIndex', 'clues', 'cluesRevealed',
+            'drawingData', 'guess', 'scores'
+          ])
+          && data.createdAt is int
+          && data.hostId is string
+          && (data.guestId == null || data.guestId is string)
+          && data.status in ['waiting', 'drawing', 'guessing', 'reveal']
+          && data.drawerRole in ['host', 'guest']
+          && data.round is int
+          && data.round >= 1
+          && data.pool is list
+          && data.pool.size() <= 100
+          && (data.promptIndex == null || data.promptIndex is int)
+          && data.clues is list
+          && data.clues.size() == 3
+          && data.clues[0] is string && data.clues[0].size() <= 60
+          && data.clues[1] is string && data.clues[1].size() <= 60
+          && data.clues[2] is string && data.clues[2].size() <= 60
+          && data.cluesRevealed is int
+          && data.cluesRevealed >= 0 && data.cluesRevealed <= 3
+          && data.drawingData is string
+          && data.drawingData.size() < 900000
+          && data.guess is string
+          && data.guess.size() <= 60
+          && data.scores is map
+          && data.scores.keys().hasOnly(['host', 'guest'])
+          && data.scores.host is int
+          && data.scores.guest is int;
+      }
+
+      // A player may fetch a room they already belong to. A signed-in
+      // user who knows an unfilled room code may fetch it once to join.
+      allow get: if signedIn()
+        && validCode()
+        && (isParticipant(resource.data) || resource.data.guestId == null);
+
+      // Never allow collection enumeration.
+      allow list: if false;
+
+      allow create: if signedIn()
+        && validCode()
+        && validRoom(request.resource.data)
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.guestId == null
+        && request.resource.data.status == 'waiting';
+
+      allow update: if signedIn()
+        && validCode()
+        && validRoom(request.resource.data)
+        && request.resource.data.hostId == resource.data.hostId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          // The first guest may claim the empty guest slot, but only
+          // the fields needed to begin the game can change with it.
+          (
+            resource.data.guestId == null
+            && resource.data.hostId != request.auth.uid
+            && request.resource.data.guestId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'guestId', 'status', 'promptIndex', 'pool'
+            ])
+          )
+          ||
+          // After joining, only the recorded host or guest can update
+          // game state, and neither identity field may be replaced.
+          (
+            isParticipant(resource.data)
+            && request.resource.data.guestId == resource.data.guestId
+          )
+        );
+
+      allow delete: if false;
+    }
+  }
+}

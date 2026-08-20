@@ -24,40 +24,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 
 <!-- ============================================================
-  SETUP REQUIRED — read before hosting on GitHub Pages:
-  1. Go to https://console.firebase.google.com, create a free project.
-  2. Firestore Database > Create database.
-  3. Authentication > Sign-in method > enable "Anonymous". This lets the
-     app quietly sign each visitor into a lightweight session so the
-     rules below can require request.auth != null — it blocks random
-     bots/scripts from writing to your database without adding any
-     login screen for you or your friend.
-  4. Project settings (gear icon) > General > "Your apps" > Web app (</>)
-     > copy the firebaseConfig object into FIREBASE_CONFIG below.
-  5. Firestore > Rules — replace the default with:
+  SECURITY SETUP
+  1. Firebase Authentication > Sign-in method > enable Anonymous.
+  2. Firestore Database > Rules > publish the contents of firestore.rules.
 
-     rules_version = '2';
-     service cloud.firestore {
-       match /databases/{database}/documents {
-         match /duelDrawRooms/{roomCode} {
-           allow read: if request.auth != null;
-           allow create: if request.auth != null
-             && roomCode.matches('^[A-Z0-9]{4}$');
-           allow update: if request.auth != null
-             && request.resource.data.keys().hasOnly([
-                  'createdAt','hostId','guestId','status','drawerRole',
-                  'round','pool','promptIndex','clues','cluesRevealed',
-                  'drawingData','guess','scores'])
-             && request.resource.data.drawingData is string
-             && request.resource.data.drawingData.size() < 900000;
-           allow delete: if false;
-         }
-       }
-     }
-
-     This requires a valid (anonymous) auth session, restricts which
-     fields can ever be written, and caps drawing size well under
-     Firestore's 1MB document limit. Click Publish after pasting.
+  Room ownership is tied to Firebase Authentication UIDs. The host and
+  guest are the only users allowed to keep reading or updating a room
+  after the guest joins. Collection listing and room deletion are denied.
 ============================================================= -->
 <script>
   const FIREBASE_CONFIG = {
@@ -418,9 +391,12 @@
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 const ROOMS = db.collection('duelDrawRooms');
-const authReady = firebase.auth().signInAnonymously().catch(err => {
-  console.error('Anonymous sign-in failed:', err);
-});
+const authReady = firebase.auth().signInAnonymously()
+  .then(credential => credential.user)
+  .catch(err => {
+    console.error('Anonymous sign-in failed:', err);
+    throw err;
+  });
 
 /* ---------------- Prompt deck ---------------- */
 const PROMPTS = [
@@ -450,7 +426,6 @@ const LS_KEY = 'duelDrawSession';
 function saveSession(obj){ localStorage.setItem(LS_KEY, JSON.stringify(obj)); }
 function loadSession(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){ return null; } }
 function clearSession(){ localStorage.removeItem(LS_KEY); }
-function uuid(){ return 'p-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 function randCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
   let s='';
@@ -476,9 +451,9 @@ function showScreen(name){
 
 /* ---------------- Home: create / join ---------------- */
 document.getElementById('btn-create').onclick = async () => {
-  await authReady;
+  const user = await authReady;
   const code = randCode();
-  const playerId = uuid();
+  const playerId = user.uid;
   const room = {
     createdAt: Date.now(),
     hostId: playerId,
@@ -488,7 +463,7 @@ document.getElementById('btn-create').onclick = async () => {
     round: 1,
     pool: shuffledIndices(PROMPTS.length),
     promptIndex: null,
-    clues: ["","",""],
+    clues: ["",""],
     cluesRevealed: 0,
     drawingData: "",
     guess: "",
@@ -503,7 +478,8 @@ document.getElementById('btn-create').onclick = async () => {
 };
 
 document.getElementById('btn-join').onclick = async () => {
-  await authReady;
+  const user = await authReady;
+  const playerId = user.uid;
   const input = document.getElementById('join-code-input');
   const errEl = document.getElementById('home-error');
   errEl.textContent = '';
@@ -513,11 +489,18 @@ document.getElementById('btn-join').onclick = async () => {
   const snap = await ref.get();
   if(!snap.exists){ errEl.textContent = "That room code doesn't exist."; return; }
   const data = snap.data();
-  if(data.guestId && data.guestId !== (session && session.roomCode===code ? session.playerId : null)){
+  if(data.hostId === playerId){
+    session = { roomCode: code, playerId, role: 'host' };
+    saveSession(session);
+    document.getElementById('lobby-code').textContent = code;
+    showScreen(data.status === 'waiting' ? 'lobby' : 'game');
+    listenRoom(code);
+    return;
+  }
+  if(data.guestId && data.guestId !== playerId){
     errEl.textContent = 'That room is already full.';
     return;
   }
-  const playerId = uuid();
   if(!data.guestId){
     const firstPromptIdx = data.pool[0];
     const remainingPool = data.pool.slice(1);
@@ -550,9 +533,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   buildPalette();
   setupCanvas();
   if(session && session.roomCode){
+    const user = await authReady;
+    if(session.playerId !== user.uid){
+      clearSession();
+      session = null;
+      showScreen('home');
+      return;
+    }
     showScreen(session.role === 'host' ? 'lobby' : 'game');
     if(session.role === 'host') document.getElementById('lobby-code').textContent = session.roomCode;
-    await authReady;
     listenRoom(session.roomCode);
   }
 });
@@ -564,6 +553,9 @@ function listenRoom(code){
     if(!snap.exists){ leaveRoom(); return; }
     currentDoc = snap.data();
     render();
+  }, err => {
+    console.error('Room access denied or unavailable:', err);
+    leaveRoom();
   });
 }
 
@@ -691,7 +683,7 @@ async function advanceRound(correct){
       drawerRole: guesserRole, // the guesser becomes the drawer next round
       round: d.round + 1,
       status: 'drawing',
-      clues: ["","",""],
+      clues: ["",""],
       cluesRevealed: 0,
       drawingData: "",
       guess: ""
