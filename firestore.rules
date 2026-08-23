@@ -7,7 +7,7 @@ service cloud.firestore {
       }
 
       function validCode() {
-        return roomCode.matches('^[A-HJ-NP-Z2-9]{4}$');
+        return roomCode.matches('^[A-HJ-NP-Z2-9]{6}$');
       }
 
       function isParticipant(data) {
