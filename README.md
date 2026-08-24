@@ -2,7 +2,7 @@
 
 A private two-player sketch-and-guess game built around shared rooms, alternating turns, optional clues, and a running score.
 
-**Live app:** https://iphiginea.github.io/dueldraw/duel-draw.html
+**Live app:** https://iphiginea.github.io/dueldraw/
 
 ## About
 
