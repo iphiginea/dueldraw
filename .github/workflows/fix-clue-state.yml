@@ -1,0 +1,44 @@
+name: Fix Duel Draw clue state
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-clue-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-clue-state:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Restore three clue slots
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text()
+          old = 'clues: ["",""],'
+          new = 'clues: ["","",""],'
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'Expected 2 two-clue reset points, found {count}')
+          path.write_text(text.replace(old, new))
+          PY
+
+      - name: Remove temporary workflow
+        run: rm .github/workflows/fix-clue-state.yml
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/fix-clue-state.yml
+          git commit -m "Fix Duel Draw room creation clue state"
+          git push
