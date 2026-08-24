@@ -472,7 +472,7 @@ document.getElementById('btn-create').onclick = async () => {
     round: 1,
     pool: shuffledIndices(PROMPTS.length),
     promptIndex: null,
-    clues: ["",""],
+    clues: ["","",""],
     cluesRevealed: 0,
     drawingData: "",
     guess: "",
@@ -692,7 +692,7 @@ async function advanceRound(correct){
       drawerRole: guesserRole, // the guesser becomes the drawer next round
       round: d.round + 1,
       status: 'drawing',
-      clues: ["",""],
+      clues: ["","",""],
       cluesRevealed: 0,
       drawingData: "",
       guess: ""
